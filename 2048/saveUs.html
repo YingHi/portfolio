@@ -1,0 +1,611 @@
+<!-- https://v3-docs.vuejs-korea.org/  -->
+<html lang="ko" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title>정말 귀찮아!</title>
+    <style media="screen">
+    .background{
+      background-color: beige;
+      position: relative;
+    }
+    .block{
+      position: absolute;
+      text-align: center;
+      font-size: 30px;
+      color: black;
+      background-color: white;
+    }
+    #ReadyBoard{
+      display: none;
+    }
+    #StartBoard{
+      display: block;
+    }
+    #EndScene{
+      display: none;
+    }
+    #ClearScene{
+      display: none;
+    }
+    #game{
+      height: 500px;
+      width: 500px;
+      background-color: black;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      grid-template-rows: 1fr 1fr 1fr 1fr;
+      grid-gap: 10px;
+      padding: 10px;
+    }
+    #ab{
+      text-align: center;
+      font-size: 30px;
+      color: black;
+      position: absolute;
+      top: 250px;
+      left: 150px;
+
+      height: 120px;
+      width: 120px;
+      background-color: gray;
+    }
+    #count2{
+      background-color: #666666;
+    }
+    #count4{
+      background-color: #666688;
+    }
+    #count8{
+      background-color: #886688;
+    }
+    #count16{
+      background-color: #888888;
+    }
+    #count32{
+      background-color: #8888AA;
+    }
+    #count64{
+      background-color: #AA88AA;
+    }
+    #count128{
+      background-color: #AAAAAA;
+    }
+    #count256{
+      background-color: #AAAABB;
+    }
+    #count512{
+      background-color: #BBAABB;
+    }
+    #count1024{
+      background-color: #BBAABB;
+    }
+    #count2048{
+      background-color: #BBBBBB;
+    }
+    </style>
+  </head>
+  <body>
+    <script src="https://unpkg.com/vue@3"></script>
+    <div id="ReadyBoard">
+      <div id="game">
+        <div v-for="index in count" class = "background"></div>
+      </div>
+      <h1 id = "text">MoveCount : 0</h1>
+    </div>
+    <div id="StartScene" style="width:500px">
+      <img src="Start.png" alt="">
+      <img id="StartBtn" src="Button.jpg" alt="">
+    </div>
+    <div id="ClearScene" style="width:500px">
+      <img src="good~.png" alt="">
+      <img src="good~.png" alt="">
+      <img src="good~.png" alt="">
+      <img src="good~.png" alt="">
+      <img src="good~.png" alt="">
+      <img src="good~.png" alt="">
+      <img src="good~.png" alt="">
+      <img src="good~.png" alt="">
+      <h3 id="ClearText"></h1>
+      <img src="good~.png" alt="">
+      <img src="good~.png" alt="">
+      <img src="good~.png" alt="">
+      <img src="good~.png" alt="">
+      <img src="good~.png" alt="">
+      <img src="good~.png" alt="">
+      <img src="good~.png" alt="">
+      <img src="good~.png" alt="">
+    </div>
+    <div id="EndScene">
+      <img src="End.jpg" alt="">
+    </div>
+     <script>
+     const { createApp } = Vue;
+      createApp({
+        data() {
+          return {
+            count : 16,
+          }
+        }
+      }).mount('#game')
+      var BlocksX = new Array(); // 블럭의 X좌표
+      var BlocksY = new Array(); // 블럭의 Y좌표
+      var CheckArrV = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+      class Block{ // 게임에서 움직일 블럭
+        constructor(N) { // 생성자
+          this.Index = N;
+          this.Value = 0;
+          this.X = BlocksX[this.Index];
+          this.Y = BlocksY[this.Index];
+          this.X_Start = BlocksX[this.X] - 5; // X 콜라이더 시작점
+          this.Y_Start = BlocksY[this.X] - 5; // Y 콜라이더 시작점
+          this.X_End = this.X_Start + 122.5; // X 콜라이더 끝점
+          this.Y_End = this.Y_Start + 122.5; // Y 콜라이더 끝점
+          this.State = 'Inactive'; // 해당 블럭의 현재 상태. Inactive일경우 비활성, Active일경우 활성
+          this.Div = document.createElement('div');
+          this.Div.setAttribute('class','block');
+          var Board = document.getElementById("game");
+          document.body.appendChild(this.Div);
+          this.Div.style.display = 'none'
+          this.direction = 'no';
+          this.event = 'no';
+          this.Div.style.left = this.Y_Start;
+          this.Div.style.top = this.X_Start;
+          this.able = true;
+          this.scale = 0;
+          this.animate = "done";
+          this.width = 117.5;
+          this.height = 117.5;
+        }
+        Animate(){
+          if(this.animate == "up"){
+            if(this.scale < 120) this.scale += 2.5
+            else this.animate = "down"
+          }else if(this.animate == "down"){
+            if(this.scale > 100) this.scale -= 2.5;
+            else this.animate = "done"
+          }else{
+            this.scale = 100;
+          }
+          this.Div.style.width = this.width * (this.scale / 100);
+          this.Div.style.height = this.height * (this.scale / 100);
+          this.Div.style.left = this.Y;
+          this.Div.style.top = this.X;
+        }
+        disable(){
+          this.able = false;
+        }
+        Move(Direction){ //이동함수
+          this.direction = Direction;
+        }
+        CheckCollision(Another){ // 매개변수는 다른 Block 객체
+          if(Another == this) return;
+          if(this.direction == 'no') return; // 움직이는 객체 기준임
+          if(Another.direction != 'no') return; // 접촉 대상은 움직이지 않는 객체 기준임
+          if(Another.X == this.X){ // 해당 객체와 X값이 같다면
+            if(this.Y_Start >= Another.Y_Start && this.Y_Start < Another.Y_End){ // 객체의 오른쪽에 부딫혔다면 
+              if(this.Value == Another.Value && this.State == "Active" && Another.State == "Active" && Another.able == true){ // 만약 해당 객체와 값이 같다면
+                Another.Active(Another.Index,Another.Value*2); // 해당 객체의 값을 두배로 하고
+                Another.animate = "up"
+                Another.scale = 85;
+                Another.disable();
+                this.Inactive(); // 현재 객체를 비활성
+              }else if(this.Value == Another.Value && this.State == "Active" && Another.State == "Active" && Another.able == false){
+                this.Active(Another.Index+1,this.Value);
+                this.direction = "no"
+              }else if(this.Value != Another.Value && this.State == "Active" && Another.State == "Active"){ // 값이 다르다면
+                this.Active(Another.Index+1,this.Value);
+                this.direction = "no"
+              }
+            }
+            if(this.Y_End >= Another.Y_Start && this.Y_End < Another.Y_End){ // 객체의 왼쪽에 부딫혔다면 
+              if(this.Value == Another.Value && this.State == "Active" && Another.State == "Active" && Another.able == true){ // 만약 해당 객체와 값이 같다면
+                Another.Active(Another.Index,Another.Value*2); // 해당 객체의 값을 두배로 하고
+                Another.animate = "up"
+                Another.scale = 85;
+                Another.disable();
+                this.Inactive(); // 현재 객체를 비활성
+              }else if(this.Value == Another.Value && this.State == "Active" && Another.State == "Active" && Another.able == false){
+                this.Active(Another.Index-1,this.Value);
+                this.direction = "no"
+              }else if(this.Value != Another.Value && this.State == "Active" && Another.State == "Active"){ // 값이 다르다면
+                this.Active(Another.Index-1,this.Value);
+                this.direction = "no"
+              }
+            }
+          }
+          else if(Another.Y == this.Y){ // 해당 객체와 Y값이 같다면
+            if(this.X_End >= Another.X_Start && this.X_End < Another.X_End){ // 해당 객체가 위쪽에서 부딫혔다면
+              if(this.Value == Another.Value && this.State == "Active" && Another.State == "Active" && Another.able == true){ // 만약 해당 객체와 값이 같다면
+                Another.Active(Another.Index,Another.Value*2); // 해당 객체의 값을 두배로 하고
+                Another.animate = "up"
+                Another.scale = 85;
+                Another.disable();
+                this.Inactive(); // 현재 객체를 비활성
+              }else if(this.Value == Another.Value && this.State == "Active" && Another.State == "Active" && Another.able == false){
+                this.Active(Another.Index-4,this.Value);
+                this.direction = "no"
+              }else if(this.Value != Another.Value && this.State == "Active" && Another.State == "Active"){ // 값이 다르다면
+                this.Active(Another.Index-4,this.Value);
+                this.direction = "no"
+              }
+            }
+            if(this.X_Start >= Another.X_Start && this.X_Start < Another.X_End){ // 해당 객체의 아래쪽에서 부딫혔다면
+              if(this.Value == Another.Value && this.State == "Active" && Another.State == "Active" && Another.able == true){ // 만약 해당 객체와 값이 같다면
+                Another.Active(Another.Index,Another.Value*2); // 해당 객체의 값을 두배로 하고
+                Another.animate = "up"
+                Another.scale = 85;
+                Another.disable();
+                this.Inactive(); // 현재 객체를 비활성
+              }else if(this.Value == Another.Value && this.State == "Active" && Another.State == "Active" && Another.able == false){
+                this.Active(Another.Index+4,this.Value);
+                this.direction = "no"
+              }else if(this.Value != Another.Value && this.State == "Active" && Another.State == "Active"){ // 값이 다르다면
+                this.Active(Another.Index+4,this.Value);
+                this.direction = "no"
+              }
+            }
+          }
+        }
+        Active(I,V){ // 블럭 활성화
+          this.Value = V;
+          this.Index = I;
+          this.X = BlocksX[this.Index];
+          this.Y = BlocksY[this.Index];
+          this.X_Start = this.X - 4.9; // X 콜라이더 시작점
+          this.Y_Start = this.Y - 4.9; // Y 콜라이더 시작점
+          this.X_End = this.X_Start + 122.4; // X 콜라이더 끝점
+          this.Y_End = this.Y_Start + 122.4; // Y 콜라이더 끝점
+          this.State = "Active"; // 상태를 활성화로 바꿈
+          this.Div.innerHTML = this.Value;
+          this.Div.style.display = 'block'
+          this.Div.id = "Count"+this.Value;
+          if(this.Value == 2048) Clear();
+        }
+        Inactive(){
+          this.State = "Inactive"; // 상태를 활성화로 바꿈
+          this.Index = -1;
+          this.X = -1;
+          this.Y = -1;
+          this.direction = 'no'
+          this.X_Start = -1; // X 콜라이더 시작점
+          this.Y_Start = -1; // Y 콜라이더 시작점
+          this.X_End = -1; // X 콜라이더 끝점
+          this.Y_End = -1; // Y 콜라이더 끝점
+          this.Value = 0; // 값 할당
+          this.Div.style.display = 'none'
+        }
+      }
+      class GameManager{
+        constructor() { //생성자
+          this.text = document.getElementById("text");
+          this.Board = document.getElementById("ReadyBoard");
+          this.StartBtn = document.getElementById("StartBtn");
+          this.StartScene = document.getElementById("StartScene");
+          this.EndScene = document.getElementById("EndScene");
+          this.ClearScene = document.getElementById("ClearScene")
+          this.ClearText = document.getElementById("ClearText")
+          this.Score; // 점수
+          this.gameState; // 게임 상태
+          this.Counts = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]; // 계산용 2차원 배열
+          this.UsingBlocks = new Array();
+          this.ReadyBlocks = new Array();
+        }
+      }
+      var Gm // 게임매니저 변수
+      var update;
+      var CheckArrX;
+      var CheckArrY;
+      function Ready(){ // 게임 상태 준비로 설정 (프로그램 시동시 바로 실행)
+        Gm.gameState = "Ready"
+      }
+      function StartBlockSetting(){ // 게임시작시 블록 세팅
+        var I;
+        var R = parseInt(Math.random() * 100); // 랜덤한 숫자
+        if(R < 33) I = 2;
+        else I = 4
+        for(var k = 0; k < 1; k++){
+          InsertNewBlock(I);
+          if(R > 66){
+            k--;
+            I = 2;
+            R = 0;
+          }
+        }
+      }
+      function InsertNewBlock(N){
+        while(true){
+          var Check = true; // 값이 같은지 아닌지 체크
+          var R = parseInt(Math.random() * 16); // 랜덤한 숫자
+          for(var i = 0; i < Gm.UsingBlocks.length; i++){
+            if(Gm.UsingBlocks[i].Index == R){ // 현재 사용중인 블록의 위치가 R과 같다면(이미 있다면) false.
+              Check = false;
+            }
+          }
+          if(Check){
+            var B = Gm.ReadyBlocks.pop(); // 대기열에서 블록을 하나 빼냄
+            B.animate = "up"
+            B.scale = 85;
+            B.Active(R,N);
+            Gm.UsingBlocks.push(B); // 빼낸 블록을 사용중 블록 배열에 추가
+            break;
+          }
+        }
+      }
+      function Update(){
+        var is_move = false;
+        for(var i = 0; i < Gm.UsingBlocks.length; i++){
+          switch(Gm.UsingBlocks[i].direction){
+            case "L" :
+              Gm.UsingBlocks[i].Y -= 11.5;
+              is_move = true;
+              if(Gm.UsingBlocks[i].Y <= BlocksY[0]){
+                if(Gm.UsingBlocks[i].Index >= 12){
+                  Gm.UsingBlocks[i].direction = "no"
+                  Gm.UsingBlocks[i].Active(12,Gm.UsingBlocks[i].Value);
+                }
+                else if(Gm.UsingBlocks[i].Index >= 8){
+                  Gm.UsingBlocks[i].direction = "no"
+                  Gm.UsingBlocks[i].Active(8,Gm.UsingBlocks[i].Value);
+                }
+                else if(Gm.UsingBlocks[i].Index >= 4){
+                  Gm.UsingBlocks[i].direction = "no"
+                  Gm.UsingBlocks[i].Active(4,Gm.UsingBlocks[i].Value);
+                }
+                else if(Gm.UsingBlocks[i].Index >= 0){
+                  Gm.UsingBlocks[i].direction = "no" 
+                  Gm.UsingBlocks[i].Active(0,Gm.UsingBlocks[i].Value);
+                }
+              }
+              break;
+            case "R" :
+              Gm.UsingBlocks[i].Y += 11.5;
+              is_move = true;
+              if(Gm.UsingBlocks[i].Y >= BlocksY[3]){
+                if(Gm.UsingBlocks[i].Index <= 3){
+                  Gm.UsingBlocks[i].direction = "no" 
+                  Gm.UsingBlocks[i].Active(3,Gm.UsingBlocks[i].Value);
+                }
+                else if(Gm.UsingBlocks[i].Index <= 7){
+                  Gm.UsingBlocks[i].direction = "no"
+                  Gm.UsingBlocks[i].Active(7,Gm.UsingBlocks[i].Value);
+                }
+                else if(Gm.UsingBlocks[i].Index <= 11){
+                  Gm.UsingBlocks[i].direction = "no"
+                  Gm.UsingBlocks[i].Active(11,Gm.UsingBlocks[i].Value);
+                }
+                else if(Gm.UsingBlocks[i].Index <= 15){
+                  Gm.UsingBlocks[i].direction = "no"
+                  Gm.UsingBlocks[i].Active(15,Gm.UsingBlocks[i].Value);
+                }
+              }
+              break;
+            case "U" :
+              Gm.UsingBlocks[i].X -= 11.5;
+              is_move = true;
+              if(Gm.UsingBlocks[i].X <= BlocksX[0]){
+                if(Gm.UsingBlocks[i].Index % 4 == 0){
+                  Gm.UsingBlocks[i].direction = "no"
+                  Gm.UsingBlocks[i].Active(0,Gm.UsingBlocks[i].Value);
+                }
+                else if(Gm.UsingBlocks[i].Index % 4 == 1){
+                  Gm.UsingBlocks[i].direction = "no"
+                  Gm.UsingBlocks[i].Active(1,Gm.UsingBlocks[i].Value);
+                }
+                else if(Gm.UsingBlocks[i].Index % 4 == 2){
+                  Gm.UsingBlocks[i].direction = "no"
+                  Gm.UsingBlocks[i].Active(2,Gm.UsingBlocks[i].Value);
+                }
+                else if(Gm.UsingBlocks[i].Index % 4 == 3){
+                  Gm.UsingBlocks[i].direction = "no" 
+                  Gm.UsingBlocks[i].Active(3,Gm.UsingBlocks[i].Value);
+                }            
+              }
+              break;
+            case "D" :
+              Gm.UsingBlocks[i].X += 11.5;
+              is_move = true;
+              if(Gm.UsingBlocks[i].X >= BlocksX[12]){
+                if(Gm.UsingBlocks[i].Index % 4 == 0){
+                  Gm.UsingBlocks[i].direction = "no"
+                  Gm.UsingBlocks[i].Active(12,Gm.UsingBlocks[i].Value);
+                }
+                else if(Gm.UsingBlocks[i].Index % 4 == 1){
+                  Gm.UsingBlocks[i].direction = "no"
+                  Gm.UsingBlocks[i].Active(13,Gm.UsingBlocks[i].Value);
+                }
+                else if(Gm.UsingBlocks[i].Index % 4 == 2){
+                  Gm.UsingBlocks[i].direction = "no"
+                  Gm.UsingBlocks[i].Active(14,Gm.UsingBlocks[i].Value);
+                }
+                else if(Gm.UsingBlocks[i].Index % 4 == 3){
+                  Gm.UsingBlocks[i].direction = "no" 
+                  Gm.UsingBlocks[i].Active(15,Gm.UsingBlocks[i].Value);
+                }            
+              }
+              break;
+            default :
+              break;
+          }
+          for(var j = 0; j < Gm.UsingBlocks.length; j++){
+            Gm.UsingBlocks[i].CheckCollision(Gm.UsingBlocks[j]);
+            Gm.UsingBlocks[i].Animate();
+          }
+          Gm.UsingBlocks[i].X_Start = Gm.UsingBlocks[i].X-5;
+          Gm.UsingBlocks[i].Y_Start = Gm.UsingBlocks[i].Y-5;
+          Gm.UsingBlocks[i].X_End = Gm.UsingBlocks[i].X_Start + 122.5;
+          Gm.UsingBlocks[i].Y_End = Gm.UsingBlocks[i].Y_Start + 122.5;
+          Gm.UsingBlocks[i].Div.style.left = Gm.UsingBlocks[i].Y;
+          Gm.UsingBlocks[i].Div.style.top = Gm.UsingBlocks[i].X;
+          Gm.UsingBlocks[i].innerHTML = Gm.UsingBlocks[i].Value;
+        }
+        if(is_move) Gm.gameState = "moving";
+        else {
+          if(Gm.gameState == "moving"){
+          Gm.gameState = "Play"
+          var is_RealMoved = false;
+          if(CheckArrX.length != Gm.UsingBlocks.length) is_RealMoved = true;
+          for(var i = 0; i < CheckArrX.length; i++){
+              if(is_RealMoved) break;
+            if(CheckArrX[i] != Gm.UsingBlocks[i].X){
+              is_RealMoved = true;
+              break;
+            }
+          }
+          for(var i = 0; i < CheckArrX.length; i++){
+              if(is_RealMoved) break;
+            if(CheckArrY[i] != Gm.UsingBlocks[i].Y){
+              is_RealMoved = true;
+              break;
+            }
+          }
+          if(is_RealMoved){
+            InsertNewBlock(2);
+            Gm.Score += 1;
+          }
+          for(var i = 0; i < Gm.UsingBlocks.length; i++){
+          Gm.UsingBlocks[i].able = true;
+          }
+          Gm.text.innerHTML = "MoveCount : " + Gm.Score; // 점수 업데이트
+        }
+        }
+        for(var i = 0; i < Gm.UsingBlocks.length; i++){
+          if(Gm.UsingBlocks[i].State == 'Inactive'){
+            var F = Gm.UsingBlocks.splice(i,1)
+            Gm.ReadyBlocks.push(new Block());
+            Gm.ReadyBlocks[Gm.ReadyBlocks.length-1] = F[0];
+            i--;
+          }
+        }
+        var is_End = 0; // 게임 종료 판별
+        for(var i = 0; i < Gm.UsingBlocks.length; i++){
+          for(var j = 0; j < Gm.UsingBlocks.length; j++){
+            if(i == Gm.UsingBlocks[j].Index){
+              CheckArrV[i] = Gm.UsingBlocks[j].Value;
+              break;
+            }
+          }
+        }
+        var is_End = 0; // 게임 종료 판별
+        for(var i = 0; i < 16; i++){
+          var Can_Move = 4;
+          if(i % 4 == 0) Can_Move-=1; // 맨 왼쪽이면 이동불가
+          else if(CheckArrV[i-1] != 0 && CheckArrV[i-1] != CheckArrV[i]) Can_Move-=1 // 왼쪽이동가능여부 확인
+          if(i % 4 == 3) Can_Move-=1; // 맨 오른쪽이면 이동불가
+          else if(CheckArrV[i+1] != 0 && CheckArrV[i+1] != CheckArrV[i]) Can_Move-=1 // 오른쪽이동가능여부 확인
+          if(i >= 0 && i <= 4) Can_Move-=1; // 맨 위쪽이면 이동불가
+          else if(CheckArrV[i-4] != 0 && CheckArrV[i-4] != CheckArrV[i]) Can_Move-=1 // 위쪽이동가능여부 확인
+          if(i >= 12 && i <= 15) Can_Move-=1; // 맨 아래쪽이면 이동불가
+          else if(CheckArrV[i+4] != 0 && CheckArrV[i+4] != CheckArrV[i]) Can_Move-=1 // 아래쪽이동가능여부 확인
+          if(Can_Move == 0) is_End += 1;
+          }
+        if(is_End == 16){
+          End();
+        }
+      }
+      function Start(){ // 게임 상태 시작으로 변경
+        Gm.Board.id = 'StartBoard'
+        var a = 0;
+        Gm.Back = document.getElementsByClassName("background")
+        for(var i = 0; i < 16; i++){ // 블럭 생성 및 할당
+          BlocksY.push(Gm.Back[i].getBoundingClientRect().left + window.pageYOffset) // 각 div의 Y좌표 절대값 할당
+          BlocksX.push(Gm.Back[i].getBoundingClientRect().top + window.pageYOffset) // 각 div의 X좌표 절대값 할당
+        }
+        for(var i = 0; i < 16; i++){ // 블럭 생성 및 할당
+          Gm.ReadyBlocks.push(new Block());
+        }
+        Gm.Score = 0; // 점수 초기화
+        Gm.gameState = "Play" // 게임 상태 플레이로 변경
+        Gm.StartScene.style.display = 'none'
+        StartBlockSetting(); // 시작 블록 세팅
+        update = setInterval(Update, 25);
+      }
+      
+      function End(){ // 게임 종료 함수
+        for(var i = 0; i < Gm.UsingBlocks.length; i++){
+          Gm.UsingBlocks[i].Div.style.display = 'none'
+        }
+        clearInterval(update);
+        Gm.gameState = "End"
+        Gm.Board.setAttribute('id','ReadyBoard')
+        Gm.EndScene.style.display = 'block'
+      }
+      function Clear(){ // 게임 클리어 함수
+        for(var i = 0; i < Gm.UsingBlocks.length; i++){
+          Gm.UsingBlocks[i].Div.style.display = 'none'
+        }
+        clearInterval(update);
+        Gm.gameState = "Clear"
+        Gm.Board.setAttribute('id','ReadyBoard')
+        Gm.ClearScene.style.display = 'block'
+        Gm.ClearText.innerHTML = "당신에 점수는 ...! " + Gm.Score + "점...! 대다내...!!!"
+      }
+      function ResetChkArr(){
+        CheckArrX = new Array();
+        CheckArrY = new Array();
+        for(var i = 0; i < Gm.UsingBlocks.length; i++){
+          CheckArrX.push(Gm.UsingBlocks[i].X);
+          CheckArrY.push(Gm.UsingBlocks[i].Y);
+        }
+        if(Gm.ReadyBlocks.length == 0){
+          End()
+          return;
+        }
+      }
+      function MoveLeft(){
+        for(var i = 0; i < Gm.UsingBlocks.length; i++){ // 블럭 생성 및 할당
+          if(Gm.UsingBlocks[i].Index == 0 || Gm.UsingBlocks[i].Index == 4 || Gm.UsingBlocks[i].Index == 8 || Gm.UsingBlocks[i].Index == 12) continue;
+          Gm.UsingBlocks[i].Move("L")
+        }
+        ResetChkArr();
+      }
+      function MoveRight(){
+        for(var i = 0; i < Gm.UsingBlocks.length; i++){ // 블럭 생성 및 할당
+          if(Gm.UsingBlocks[i].Index == 3 || Gm.UsingBlocks[i].Index == 7 || Gm.UsingBlocks[i].Index == 11 || Gm.UsingBlocks[i].Index == 15) continue;
+          Gm.UsingBlocks[i].Move("R")
+        }
+        ResetChkArr();
+      }
+      function MoveUp(){
+        for(var i = 0; i < Gm.UsingBlocks.length; i++){ // 블럭 생성 및 할당
+          if(Gm.UsingBlocks[i].Index == 0 || Gm.UsingBlocks[i].Index == 1 || Gm.UsingBlocks[i].Index == 2 || Gm.UsingBlocks[i].Index == 3) continue;
+          Gm.UsingBlocks[i].Move("U")
+        }
+        ResetChkArr();
+      }
+      function MoveDown(){
+        for(var i = 0; i < Gm.UsingBlocks.length; i++){ // 블럭 생성 및 할당
+          if(Gm.UsingBlocks[i].Index == 12 || Gm.UsingBlocks[i].Index == 13 || Gm.UsingBlocks[i].Index == 14 || Gm.UsingBlocks[i].Index == 15) continue;
+          Gm.UsingBlocks[i].Move("D")
+        }
+        ResetChkArr();
+      }
+      
+      function DK(event){
+        if(Gm.gameState == "Play"){
+            switch(event.keyCode) {
+          		case 37:
+                MoveLeft();
+          			break;
+          		case 38:
+                MoveUp();
+          			break;
+          		case 39:
+                MoveRight();
+          			break;
+          		case 40:
+                MoveDown();
+            		break;
+          	}
+          }
+        }
+
+      window.onload = function(){
+        Gm = new GameManager();
+        Gm.Score = 0;
+        document.addEventListener("keydown", DK, false);
+        Gm.StartBtn.addEventListener('click',Start)
+        Ready();
+      }
+     </script>
+  </body>
+</html>
